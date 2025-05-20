@@ -1,16 +1,12 @@
-import { SignedIn, SignedOut, RedirectToSignIn } from "@clerk/nextjs";
+import React from 'react'
+import AddCourse from './_components/AddCourse'
 
-export default function DashboardPage() {
+function Dashboard() {
   return (
-    <>
-      <SignedIn>
-        <div className="min-h-screen flex items-center justify-center text-3xl font-bold text-indigo-600">
-          Welcome to your Dashboard
-        </div>
-      </SignedIn>
-      <SignedOut>
-        <RedirectToSignIn />
-      </SignedOut>
-    </>
-  );
+    <div>
+      <AddCourse/>
+    </div>
+  )
 }
+
+export default Dashboard

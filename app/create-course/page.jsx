@@ -6,6 +6,7 @@ import SelectCategory from './_components/SelectCategory';
 import TopicDescription from './_components/TopicDescription';
 import SelectOption from './_components/SelectOption';
 import { UserInputContext } from '../_context/UserInputContext';
+import LoadingDialog from './_components/LoadingDialog';
 
 function CreateCourse() {
   const StepperOptions = [
@@ -27,6 +28,7 @@ function CreateCourse() {
   ];
 
   const{userCourseInput,setUserCourseInput} = useContext(UserInputContext);
+  const [loading,setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(()=>{
@@ -57,6 +59,33 @@ function CreateCourse() {
 
     return false;
   };
+
+const generateCourse = async (prompt) => {
+  setLoading(true);
+  try {
+    const response = await fetch("/api/generate-course", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    });
+
+    const data = await response.json();
+
+    if (response.status !== 200) {
+      console.error("API Error:", data.error);
+    } else {
+      console.log("Response Text:", data.text);
+      // You can set it to state here:
+      // setCourseText(data.text);
+    }
+  } catch (error) {
+    console.error("Network error:", error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div>
@@ -111,12 +140,13 @@ function CreateCourse() {
           )}
 
           {activeIndex == 2 && (
-            <Button disabled={checkStatus()} onClick={() => setActiveIndex(activeIndex + 1)}>
+            <Button disabled={checkStatus()} onClick={() => generateCourse()}>
               Generate Course Layout
             </Button>
           )}
         </div>
       </div>
+      <LoadingDialog loading={loading}/>
     </div>
   );
 }

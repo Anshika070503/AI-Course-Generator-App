@@ -7,6 +7,11 @@ import TopicDescription from './_components/TopicDescription';
 import SelectOption from './_components/SelectOption';
 import { UserInputContext } from '../_context/UserInputContext';
 import LoadingDialog from './_components/LoadingDialog';
+import { db } from '@/configs/db';
+import { CourseList } from '@/configs/schema';
+import uuid4 from 'uuid4';
+import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/router';
 
 function CreateCourse() {
   const StepperOptions = [
@@ -30,7 +35,8 @@ function CreateCourse() {
   const{userCourseInput,setUserCourseInput} = useContext(UserInputContext);
   const [loading,setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-
+  const{user} = useUser();
+  const router=useRouter();
   useEffect(()=>{
       console.log(userCourseInput);
   },[userCourseInput])
@@ -62,6 +68,7 @@ function CreateCourse() {
 
 const generateCourse = async (prompt) => {
   setLoading(true);
+  let courseText = ""; // declare here to use later
   try {
     const response = await fetch("/api/generate-course", {
       method: "POST",
@@ -76,16 +83,42 @@ const generateCourse = async (prompt) => {
     if (response.status !== 200) {
       console.error("API Error:", data.error);
     } else {
-      console.log("Response Text:", data.text);
-      // You can set it to state here:
-      // setCourseText(data.text);
+      courseText = data.text;
+      console.log("Response Text:", courseText);
+      // Optionally set to state
+      // setCourseText(courseText);
     }
   } catch (error) {
     console.error("Network error:", error.message);
   } finally {
     setLoading(false);
+    if (courseText) {
+      SaveCourseLayoutInDb(courseText); // pass the course text here
+    }
   }
 };
+
+
+const SaveCourseLayoutInDb=async(courseLayout)=>{
+  var id = uuid4();
+  setLoading(true);
+  const result = await db.insert(CourseList).values({
+    courseId: id,
+    name:userCourseInput?.topic,
+    level:userCourseInput?.level,
+    category:userCourseInput?.category,
+    courseOutput:courseLayout,
+    createdBy:user?.primaryEmailAddress?.emailAddress,
+    userName:user?.fullName,
+    userProfileImage:user?.imageUrl
+
+  })
+  console.log("Finish");
+ 
+
+  setLoading(false);
+   router.replace('/create-course/'+id)
+}
 
   return (
     <div>

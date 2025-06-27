@@ -9,7 +9,7 @@ import { UserInputContext } from '../_context/UserInputContext';
 import model from "@/configs/AImodel";
 import { db } from '@/configs/db';
 import { CourseList } from '@/configs/schema';
-import uuid4 from 'uuid4';
+import {uuid4} from 'uuid4';
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { GenerateCourseLayout_AI} from '@/configs/AImodel';
@@ -110,34 +110,41 @@ Return only valid JSON. Do NOT wrap the response in triple backticks or markdown
     const parsed = JSON.parse(cleanText);
     setCourseData(parsed); // ✅ Now this will not throw an error
     console.log("✅ Parsed JSON set.");
+    SaveCourseLayoutInDb(parsed);
+
   } catch (err) {
     console.error("❌ Gemini API error:", err);
     alert("AI call failed—check console.");
   } finally {
     setLoading(false);
   }
+ 
 };
-
 
 const SaveCourseLayoutInDb=async(courseLayout)=>{
   var id = uuid4();
   setLoading(true);
+try {
   const result = await db.insert(CourseList).values({
     courseId: id,
-    name:userCourseInput?.topic,
-    level:userCourseInput?.level,
-    category:userCourseInput?.category,
-    courseOutput:courseLayout,
-    createdBy:user?.primaryEmailAddress?.emailAddress,
-    userName:user?.fullName,
-    userProfileImage:user?.imageUrl
-
-  })
+    name: userCourseInput?.topic || 'Unknown',
+    category: userCourseInput?.category || 'Unknown',
+    level: userCourseInput?.level || 'Beginner',
+    includeVideo: 'Yes',
+    courseOutput: courseLayout,
+    createdBy: user?.primaryEmailAddress?.emailAddress || 'anonymous@example.com',
+    userName: user?.fullName || 'Anonymous',
+    userProfileImage: user?.imageUrl || '',
+  });
   console.log("Finish");
- 
-
+  router.replace('/create-course/' + id);
+} catch (error) {
+  console.error("Insert error:", error);
+  alert("Failed to save course layout. Check console.");
+} finally {
   setLoading(false);
-   router.replace('/create-course/'+id)
+}
+
 }
 
   return (

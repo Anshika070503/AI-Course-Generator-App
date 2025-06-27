@@ -6,12 +6,15 @@ import SelectCategory from './_components/SelectCategory';
 import TopicDescription from './_components/TopicDescription';
 import SelectOption from './_components/SelectOption';
 import { UserInputContext } from '../_context/UserInputContext';
-import LoadingDialog from './_components/LoadingDialog';
+import model from "@/configs/AImodel";
 import { db } from '@/configs/db';
 import { CourseList } from '@/configs/schema';
 import uuid4 from 'uuid4';
 import { useUser } from '@clerk/nextjs';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
+import { GenerateCourseLayout_AI} from '@/configs/AImodel';
+import LoadDialog from './_components/LoadDialog';
+
 
 function CreateCourse() {
   const StepperOptions = [
@@ -31,12 +34,22 @@ function CreateCourse() {
       icon: <HiOutlinePencilSquare />
     }
   ];
+  // const [courseData, setCourseData] = React.useState(null);
+// const [userCourseInput, setUserCourseInput] = React.useState({
+//   category: "Programming",
+//   topic: "Python",
+//   level: "Basic",
+//   duration: "1 hour",
+//   displayVideo: true,
+//   noOfChapter: 5,
+// });
 
   const{userCourseInput,setUserCourseInput} = useContext(UserInputContext);
   const [loading,setLoading] = useState(false);
+  const [courseData, setCourseData] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const{user} = useUser();
-  const router=useRouter();
+  const router= useRouter();
   useEffect(()=>{
       console.log(userCourseInput);
   },[userCourseInput])
@@ -62,39 +75,46 @@ function CreateCourse() {
       ){
       return true;
     }
-
+ 
     return false;
   };
 
-const generateCourse = async (prompt) => {
-  setLoading(true);
-  let courseText = ""; // declare here to use later
+
+
+
+
+const GenerateCourseLayout = async () => { 
+  console.log("⚡ GenerateCourseLayout called");
+
   try {
-    const response = await fetch("/api/generate-course", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prompt }),
+    setLoading(true);
+
+    const prompt = `
+Generate a course tutorial with fields: Course Name, Description, Chapters (Name, About, Duration).
+Category: ${userCourseInput.category}, Topic: ${userCourseInput.topic}, Level: ${userCourseInput.level}, Duration: ${userCourseInput.duration}, Chapters: ${userCourseInput.noOfChapter}.
+Return only valid JSON. Do NOT wrap the response in triple backticks or markdown.`;
+
+    const result = await model.generateContent({
+      contents: [{ parts: [{ text: prompt }] }]
     });
 
-    const data = await response.json();
+    const text = await result.response.text();
+    console.log("🤖 AI Output:", text);
 
-    if (response.status !== 200) {
-      console.error("API Error:", data.error);
-    } else {
-      courseText = data.text;
-      console.log("Response Text:", courseText);
-      // Optionally set to state
-      // setCourseText(courseText);
+    // ✅ Clean up triple backticks if present
+    let cleanText = text.trim();
+    if (cleanText.startsWith("```")) {
+      cleanText = cleanText.replace(/```json|```/g, "").trim();
     }
-  } catch (error) {
-    console.error("Network error:", error.message);
+
+    const parsed = JSON.parse(cleanText);
+    setCourseData(parsed); // ✅ Now this will not throw an error
+    console.log("✅ Parsed JSON set.");
+  } catch (err) {
+    console.error("❌ Gemini API error:", err);
+    alert("AI call failed—check console.");
   } finally {
     setLoading(false);
-    if (courseText) {
-      SaveCourseLayoutInDb(courseText); // pass the course text here
-    }
   }
 };
 
@@ -173,13 +193,13 @@ const SaveCourseLayoutInDb=async(courseLayout)=>{
           )}
 
           {activeIndex == 2 && (
-            <Button disabled={checkStatus()} onClick={() => generateCourse()}>
+            <Button disabled={checkStatus()} onClick={() => GenerateCourseLayout()}>
               Generate Course Layout
             </Button>
           )}
         </div>
       </div>
-      <LoadingDialog loading={loading}/>
+     <LoadDialog loading={loading}/>
     </div>
   );
 }

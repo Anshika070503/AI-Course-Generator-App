@@ -1,46 +1,21 @@
-"use client"
-import { db } from '@/configs/db';
-import { CourseList } from '@/configs/schema';
-import { useUser } from '@clerk/nextjs';
-import { eq, and } from 'drizzle-orm';
-import React, { useEffect, useState } from 'react';
-import CourseBasicInfo from './_components/CourseBasicInfo';
-import CourseDetail from './_components/CourseDetail';
-import { useParams } from 'next/navigation'; // ✅ NEW IMPORT
+'use client';
 
-function CourseLayout() {
-  const { user } = useUser();
-  const [course, setCourse] = useState(null);
-  const params = useParams(); // ✅ USE HOOK TO GET params
+import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/nextjs';
+import { useParams } from 'next/navigation';
+import CourseLayout from './CourseLayout';
+
+export default function Page() {
+  const params = useParams(); 
   const courseId = params?.courseId;
 
-  useEffect(() => {
-    if (courseId && user?.primaryEmailAddress?.emailAddress) {
-      GetCourse();
-    }
-  }, [courseId, user]);
-
-  const GetCourse = async () => {
-    const result = await db.select().from(CourseList)
-      .where(and(
-        eq(CourseList.courseId, courseId),
-        eq(CourseList.createdBy, user?.primaryEmailAddress?.emailAddress)
-      ));
-    setCourse(result[0]);
-    console.log(result);
-  }
-
   return (
-    <div className='mt-10 px-7 md:px-20 lg:px-44'>
-      <h2 className='font-bold text-center text-2xl'>Course Layout</h2>
-
-      {/* BASIC INFO */}
-      {course && <CourseBasicInfo course={course} />}
-
-      {/* Course Detail */}
-      {course && <CourseDetail course={course} />}
-    </div>
+    <>
+      <SignedIn>
+        <CourseLayout courseId={courseId} />
+      </SignedIn>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+    </>
   );
 }
-
-export default CourseLayout;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { db } from '@/configs/db';
 import { CourseList } from '@/configs/schema';
@@ -14,15 +14,13 @@ export default function CourseLayout({ courseId }) {
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
- 
+  // ✅ Define fetchCourse using useCallback so it’s not recreated unnecessarily
+  const fetchCourse = useCallback(async () => {
+    if (!isLoaded || !user?.primaryEmailAddress?.emailAddress) {
+      console.log('⏳ Waiting for Clerk user to load...');
+      return;
+    }
 
-  if (!isLoaded || !user?.primaryEmailAddress?.emailAddress) {
-    console.log('⏳ Waiting for Clerk user to load...');
-    return;
-  }
-
-  const fetchCourse = async () => {
     try {
       const result = await db
         .select()
@@ -34,24 +32,18 @@ export default function CourseLayout({ courseId }) {
           )
         );
 
-
-      console.log(" Fetched course object:", JSON.stringify(result[0], null, 2));
-
+      console.log("✅ Fetched course object:", JSON.stringify(result[0], null, 2));
       setCourse(result[0] || null);
     } catch (err) {
-      console.error(' Error fetching course:', err);
+      console.error('❌ Error fetching course:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [courseId, isLoaded, user]);
 
-  fetchCourse();
-}, [courseId, isLoaded, user]);
-
-
-   
-      
-    
+  useEffect(() => {
+    fetchCourse();
+  }, [fetchCourse]);
 
   if (loading) return <div className="text-center mt-10">⏳ Loading...</div>;
 
@@ -60,9 +52,11 @@ export default function CourseLayout({ courseId }) {
   return (
     <div className="mt-2 px-7 md:px-20 lg:px-44">
       <h2 className="font-bold text-center text-xl">📘 Course Layout</h2>
-      <CourseBasicInfo course={course} />
+
+      {/* ✅ Pass fetchCourse as a function to child components */}
+      <CourseBasicInfo course={course} refreshData={fetchCourse} />
       <CourseDetail course={course} />
-      <ChapterList course={course}/>
+      <ChapterList course={course} refreshData={fetchCourse} />
     </div>
   );
 }

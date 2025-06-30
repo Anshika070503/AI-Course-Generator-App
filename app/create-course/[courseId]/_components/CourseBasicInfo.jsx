@@ -9,15 +9,15 @@ import { db } from '@/configs/db';
 import { CourseList } from '@/configs/schema';
 import { eq } from 'drizzle-orm';
 
-function CourseBasicInfo({ course, refreshData }) {
+function CourseBasicInfo({ course, refreshData, edit = true }) {
   const [previewUrl, setPreviewUrl] = useState(course?.courseBanner || null);
   const [uploading, setUploading] = useState(false);
 
-  useEffect(()=>{
-      if(course){
-        setPreviewUrl(course?.courseBanner)
-      }
-  },[course])
+  useEffect(() => {
+    if (course) {
+      setPreviewUrl(course?.courseBanner);
+    }
+  }, [course]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -29,13 +29,13 @@ function CourseBasicInfo({ course, refreshData }) {
 
       if (uploadedUrl) {
         setPreviewUrl(uploadedUrl);
-        // 🔁 Update courseBanner in DB
+
         await db
           .update(CourseList)
           .set({ courseBanner: uploadedUrl })
           .where(eq(CourseList.id, course.id));
 
-        refreshData(); // 🔁 Refresh updated data in UI
+        refreshData(); // Refresh UI
         console.log("✅ courseBanner updated in DB");
       }
     } catch (err) {
@@ -48,10 +48,10 @@ function CourseBasicInfo({ course, refreshData }) {
   const uploadImageToCloudinary = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("upload_preset", "unsigned_preset_one"); 
+    formData.append("upload_preset", "unsigned_preset_one");
 
     const response = await fetch(
-      "https://api.cloudinary.com/v1_1/dr7zhhaee/image/upload", 
+      "https://api.cloudinary.com/v1_1/dr7zhhaee/image/upload",
       {
         method: "POST",
         body: formData,
@@ -67,11 +67,13 @@ function CourseBasicInfo({ course, refreshData }) {
     <div className='p-7 border rounded-xl shadow-sm mt-4'>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-5'>
         <div>
-          <h2 className='font-bold text-3xl flex items-center'>
+          <h2 className='font-bold text-3xl flex items-center gap-2'>
             {course?.courseOutput?.["Course Name"] || "Untitled"}
-            <span className='ml-2'>
-              <EditCourseBasicInfo course={course} refreshData={refreshData} />
-            </span>
+            {edit && (
+              <span>
+                <EditCourseBasicInfo course={course} refreshData={refreshData} />
+              </span>
+            )}
           </h2>
 
           <p className='text-sm text-gray-400 mt-3'>
@@ -96,13 +98,13 @@ function CourseBasicInfo({ course, refreshData }) {
               className='w-full rounded-xl h-[200px] object-cover cursor-pointer'
             />
           </label>
-          <input
+      {edit &&     <input
             type="file"
             id="upload-image"
             className="hidden"
             accept="image/*"
             onChange={handleFileChange}
-          />
+      />}
           {uploading && <p className="text-sm text-blue-500 mt-1">Uploading...</p>}
         </div>
       </div>

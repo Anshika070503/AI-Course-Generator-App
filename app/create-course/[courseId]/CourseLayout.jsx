@@ -15,6 +15,7 @@ import LoadDialog from '../_components/LoadDialog';
 import service from '@/configs/service';
 import { useRouter } from 'next/navigation';
 
+
 export default function CourseLayout({ courseId }) {
   const { user, isLoaded } = useUser();
   const { userCourseInput } = useContext(UserInputContext);

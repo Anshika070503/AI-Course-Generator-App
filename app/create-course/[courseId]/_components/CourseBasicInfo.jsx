@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { HiOutlinePuzzle } from "react-icons/hi";
 import EditCourseBasicInfo from './EditCourseBasicInfo';
 import { db } from '@/configs/db';
@@ -12,6 +12,12 @@ import { eq } from 'drizzle-orm';
 function CourseBasicInfo({ course, refreshData }) {
   const [previewUrl, setPreviewUrl] = useState(course?.courseBanner || null);
   const [uploading, setUploading] = useState(false);
+
+  useEffect(()=>{
+      if(course){
+        setPreviewUrl(course?.courseBanner)
+      }
+  },[course])
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -85,7 +91,7 @@ function CourseBasicInfo({ course, refreshData }) {
             <Image
               src={previewUrl || '/layout.jpg'}
               alt="Course Banner"
-              width={80}
+              width={100}
               height={100}
               className='w-full rounded-xl h-[200px] object-cover cursor-pointer'
             />

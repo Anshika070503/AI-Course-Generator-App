@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useContext } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { db } from '@/configs/db';
-import { CourseList } from '@/configs/schema';
+import { Chapters, CourseList } from '@/configs/schema';
 import { eq, and } from 'drizzle-orm';
 import model from "@/configs/AImodel";
 import CourseBasicInfo from './_components/CourseBasicInfo';
@@ -12,19 +12,17 @@ import ChapterList from './_components/ChapterList';
 import { Button } from '@/components/ui/button';
 import { UserInputContext } from '@/app/_context/UserInputContext';
 import LoadDialog from '../_components/LoadDialog';
+import service from '@/configs/service';
+import { useRouter } from 'next/navigation';
 
 export default function CourseLayout({ courseId }) {
   const { user, isLoaded } = useUser();
-  const{userCourseInput,setUserCourseInput} = useContext(UserInputContext);
+  const { userCourseInput } = useContext(UserInputContext);
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [courseData, setCourseData] = useState(null);
+  const router = useRouter();
 
-  useEffect(()=>{
-        console.log(userCourseInput);
-    },[userCourseInput])
-
-  // ✅ Define fetchCourse using useCallback so it’s not recreated unnecessarily
   const fetchCourse = useCallback(async () => {
     if (!isLoaded || !user?.primaryEmailAddress?.emailAddress) {
       console.log('⏳ Waiting for Clerk user to load...');
@@ -42,7 +40,7 @@ export default function CourseLayout({ courseId }) {
           )
         );
 
-      console.log("✅ Fetched course object:", JSON.stringify(result[0], null, 2));
+      console.log("✅ Fetched course object:", result[0]);
       setCourse(result[0] || null);
     } catch (err) {
       console.error('❌ Error fetching course:', err);
@@ -56,57 +54,110 @@ export default function CourseLayout({ courseId }) {
   }, [fetchCourse]);
 
   if (loading) return <div className="text-center mt-10">⏳ Loading...</div>;
-
   if (!course) return <div className="text-center mt-10 text-red-600">❌ Course not found.</div>;
 
-const GenerateChapterContent = async () => { 
-  console.log("⚡ Generate Chapter Content called");
+  const GenerateChapterContent = async () => {
+    console.log("⚡ Generate Chapter Content called");
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const prompt = `
+      const prompt = `
 Explain the concept in detail on
-Topic:${userCourseInput.name},  Chapter: ${userCourseInput.Chapters}.
-, in JSON format with list of array with field as title , explanation on give chapter in detail , Code Example (Code field in <precode> format) if applicable`;
+Topic: ${userCourseInput?.name}, Chapter: ${userCourseInput?.Chapters}.
+Give it in JSON array format with fields:
+- title
+- explanation (on given chapter in detail)
+- code (if applicable, wrap code inside <precode>...</precode>)
+`;
 
-    const result = await model.generateContent({
-      contents: [{ parts: [{ text: prompt }] }]
-    });
+      const result = await model.generateContent({
+        contents: [{ parts: [{ text: prompt }] }],
+      });
 
-    const text = await result.response.text();
-    console.log("🤖 AI Output:", text);
+      const text = await result.response.text();
+      console.log("🧠 AI Raw Response:", text);
 
-    // ✅ Clean up triple backticks if present
-    let cleanText = text.trim();
-    if (cleanText.startsWith("```")) {
-      cleanText = cleanText.replace(/```json|```/g, "").trim();
+      let cleanText = text.trim();
+      if (cleanText.startsWith("```")) {
+        cleanText = cleanText.replace(/```json|```/g, "").trim();
+      }
+
+      // Try to match and parse JSON array from AI response
+      const jsonMatch = cleanText.match(/\[.*\]/s);
+      if (!jsonMatch) {
+        console.error("❌ No JSON array found in AI response");
+        alert("Invalid format from AI model.");
+        setLoading(false);
+        return;
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+        console.log("✅ Parsed content:", parsed);
+      } catch (e) {
+        console.error("❌ JSON parse failed:", jsonMatch[0]);
+        alert("AI returned invalid JSON. Check console.");
+        setLoading(false);
+        return;
+      }
+
+      setCourseData(parsed);
+
+      // YouTube video fetch
+      const query = `${userCourseInput?.name} ${userCourseInput?.Chapters}`;
+      const resp = await service.getVideos(query);
+
+      const videoIds = resp?.items?.map((video) => video.id?.videoId || video.id) || [];
+
+      if (videoIds.length === 0) {
+        console.warn("⚠️ No videos found.");
+      } else {
+        console.log("📺 Video IDs:", videoIds);
+      }
+
+      // Safe insert into DB
+     const chapterId = Math.floor(Math.random() * 1000000); // integer
+      const joinedVideoIds = videoIds.join(',');
+
+      if (!course?.courseId) {
+        console.error("❌ Missing courseId, cannot insert.");
+        alert("Course ID missing.");
+        setLoading(false);
+        return;
+      }
+
+      await db.insert(Chapters).values({
+        chapterId,
+        courseId: course.courseId,
+        content: parsed,
+        videoId: joinedVideoIds,
+      });
+
+     await db.update(CourseList).set({
+      publish:true
+     })
+
+      router.replace(`/create-course/${course?.courseId}/finish`);
+    } catch (err) {
+      console.error("❌ Error generating chapter content:", err);
+      alert("Something went wrong. Check console.");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const parsed = JSON.parse(cleanText);
-    setCourseData(parsed); // ✅ Now this will not throw an error
-    console.log("✅ Parsed JSON set.");
-    //SaveCourseLayoutInDb(parsed);
-
-  } catch (err) {
-    console.error("❌ Gemini API error:", err);
-    alert("AI call failed—check console.");
-  } finally {
-    setLoading(false);
-  }
- 
-};
-  
   return (
     <div className="mt-2 px-7 md:px-20 lg:px-44">
       <h2 className="font-bold text-center text-xl">📘 Course Layout</h2>
-      <LoadDialog loading={loading}/>
+      <LoadDialog loading={loading} />
 
-      {/* ✅ Pass fetchCourse as a function to child components */}
       <CourseBasicInfo course={course} refreshData={fetchCourse} />
       <CourseDetail course={course} />
       <ChapterList course={course} refreshData={fetchCourse} />
-      <Button onClick={GenerateChapterContent} className='my-7 '>Generate Course Content</Button>
+      <Button onClick={GenerateChapterContent} className='my-7'>Generate Course Content</Button>
+       <LoadDialog loading={loading}/>
     </div>
   );
 }

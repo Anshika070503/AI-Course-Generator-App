@@ -95,15 +95,26 @@ Give it in JSON array format with fields:
 
       let parsed;
       try {
-        parsed = JSON.parse(jsonMatch[0]);
-        console.log("✅ Parsed content:", parsed);
-      } catch (e) {
-        console.error("❌ JSON parse failed:", jsonMatch[0]);
-        alert("AI returned invalid JSON. Check console.");
-        setLoading(false);
-        return;
-      }
+  // First parse to get the inner JSON string (remove escaping)
+  const intermediate = JSON.parse(jsonMatch[0]);
 
+  // Check if intermediate is a string (meaning JSON string inside string)
+  if (typeof intermediate === "string") {
+    // Parse again to get actual object
+    parsed = JSON.parse(intermediate);
+  } else {
+    // If already object/array, just use it
+    parsed = intermediate;
+  }
+  console.log(" Parsed content:", parsed);
+} catch (e) {
+  console.error(" JSON parse failed:", e, jsonMatch[0]);
+  alert("AI returned invalid JSON. Check console.");
+  setLoading(false);
+  return;
+}
+
+     
       setCourseData(parsed);
 
       // YouTube video fetch

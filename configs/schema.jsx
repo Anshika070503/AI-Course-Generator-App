@@ -14,7 +14,8 @@ export const CourseList = pgTable('courselist', {
   userName: varchar('userName'),
   userProfileImage: varchar('userProfileImage'),
   courseBanner:varchar('courseBanner').default('/placeholder.png'),
-  publish:boolean('publish').default(false)
+  publish:boolean('publish').default(false),
+  isDeleted: boolean("isDeleted").notNull().default(false),
 })
 export const Chapters=pgTable('chapters',{
   id:serial('id').primaryKey(),

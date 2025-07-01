@@ -10,10 +10,17 @@ import Link from 'next/link';
 function CourseCard({ course, refreshData }) {
   const handleOnDelete = async () => {
     try {
+      console.log('Deleting ID:', course?.id);
       const resp = await db
         .delete(CourseList)
         .where(eq(CourseList.id, course?.id))
         .returning({ id: CourseList?.id });
+        if (!course?.id) {
+  console.warn("❗Course ID is undefined. Skipping delete.");
+  return;
+}
+console.log('Delete Response:', resp);
+
 
       if (resp) {
         refreshData();
